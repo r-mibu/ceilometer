@@ -2722,3 +2722,97 @@ class TestAlarmsQuotas(v2.FunctionalTest,
 
         alarms = self.get_json('/alarms')
         self.assertEqual(2, len(alarms))
+
+
+class TestEventAlarms(v2.FunctionalTest,
+                      tests_db.MixinTestsWithBackendScenarios):
+
+    def setUp(self):
+        super(TestEventAlarms, self).setUp()
+        self.auth_headers = {'X-User-Id': str(uuid.uuid4()),
+                             'X-Project-Id': str(uuid.uuid4())}
+        for alarm in [
+            models.Alarm(name='event.alarm.1',
+                         type='event',
+                         enabled=True,
+                         alarm_id='h',
+                         description='h',
+                         state='insufficient data',
+                         severity='moderate',
+                         state_timestamp=constants.MIN_DATETIME,
+                         timestamp=constants.MIN_DATETIME,
+                         ok_actions=[],
+                         insufficient_data_actions=[],
+                         alarm_actions=[],
+                         repeat_actions=False,
+                         user_id=self.auth_headers['X-User-Id'],
+                         project_id=self.auth_headers['X-Project-Id'],
+                         time_constraints=[],
+                         rule=dict(event_type='event.test',
+                                   query=[]),
+                         ),
+                ]:
+
+            self.alarm_conn.update_alarm(alarm)
+
+    def _verify_alarm(self, json, alarm, expected_name=None):
+        if expected_name and alarm.name != expected_name:
+            self.fail("Alarm not found")
+        self._add_default_threshold_rule(json)
+        for key in json:
+            if key.endswith('_rule'):
+                storage_key = 'rule'
+            else:
+                storage_key = key
+            self.assertEqual(json[key], getattr(alarm, storage_key))
+
+    def test_list_alarms(self):
+        data = self.get_json('/alarms')
+        self.assertEqual(1, len(data))
+        self.assertEqual(set(['event.alarm.1']),
+                         set(r['name'] for r in data))
+        self.assertEqual(set(['event.test']),
+                         set(r['event_rule']['event_type']
+                             for r in data if 'event_rule' in r))
+
+    def test_post_event_alarm_defaults(self):
+        to_check = {
+            'enabled': True,
+            'name': 'added_alarm_defaults',
+            'state': 'insufficient data',
+            'description': 'Alarm when * event occurred.',
+            'type': 'event',
+            'ok_actions': [],
+            'alarm_actions': [],
+            'insufficient_data_actions': [],
+            'repeat_actions': False,
+            'threshold_rule': {
+                'event_type': '*',
+                'query': [],
+            }
+        }
+
+        json = {
+            'name': 'added_alarm_defaults',
+            'type': 'event',
+            'event_rule': {
+                'event_type': '*',
+                'query': []
+            }
+        }
+        self.post_json('/alarms', params=json, status=201,
+                       headers=self.auth_headers)
+        alarms = list(self.alarm_conn.get_alarms())
+        self.assertEqual(2, len(alarms))
+        for alarm in alarms:
+            if alarm.name == 'added_alarm_defaults':
+                for key in to_check:
+                    if key.endswith('_rule'):
+                        storage_key = 'rule'
+                    else:
+                        storage_key = key
+                    self.assertEqual(to_check[key],
+                                     getattr(alarm, storage_key))
+                break
+        else:
+            self.fail("Alarm not found")

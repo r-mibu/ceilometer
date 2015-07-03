@@ -51,3 +51,8 @@ def evaluator():
     LOG.debug("Alarm evaluator loaded: %s" %
               eval_service_mgr.driver.__class__.__name__)
     os_service.launch(eval_service_mgr.driver).wait()
+
+
+def event_evaluator():
+    service.prepare_service()
+    os_service.launch(alarm_service.EventAlarmEvaluationService()).wait()

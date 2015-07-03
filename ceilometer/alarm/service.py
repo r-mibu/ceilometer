@@ -27,6 +27,7 @@ from stevedore import extension
 
 from ceilometer import alarm as ceilometer_alarm
 from ceilometer.alarm.partition import coordination as alarm_coordination
+from ceilometer.alarm import event
 from ceilometer.alarm import rpc as rpc_alarm
 from ceilometer import coordination as coordination
 from ceilometer.i18n import _
@@ -224,6 +225,21 @@ class PartitionedAlarmService(AlarmService, os_service.Service):
     def allocate(self, context, data):
         self.partition_coordinator.allocate(data.get('uuid'),
                                             data.get('alarms'))
+
+
+class EventAlarmEvaluationService(AlarmService, os_service.Service):
+
+    def start(self):
+        super(EventAlarmEvaluationService, self).start()
+        self.listener = event.get_event_listener(self.evaluators)
+        self.listener.start()
+        # Add a dummy thread to have wait() working
+        self.tg.add_timer(604800, lambda: None)
+
+    def stop(self):
+        self.listener.stop()
+        self.listener.wait()
+        super(EventAlarmEvaluationService, self).stop()
 
 
 class AlarmNotifierService(os_service.Service):

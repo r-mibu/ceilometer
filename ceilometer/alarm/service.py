@@ -147,8 +147,9 @@ class AlarmEvaluationService(AlarmService, os_service.Service):
         self.tg.add_timer(604800, lambda: None)
 
     def _assigned_alarms(self):
-        all_alarms = self._client.alarms.list(q=[{'field': 'enabled',
-                                                  'value': True}])
+        enabled = {'field': 'enabled', 'value': True}
+        not_event = {'field': 'type', 'op': 'ne', 'value': 'event'}
+        all_alarms = self._client.alarms.list(q=[enabled, not_event])
         return self.partition_coordinator.extract_my_subset(
             self.PARTITIONING_GROUP_NAME, all_alarms)
 

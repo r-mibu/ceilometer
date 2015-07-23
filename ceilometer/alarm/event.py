@@ -27,14 +27,14 @@ EVENT_ALARM_RPC_TOPIC = 'alarm.all'
 def get_event_listener(evaluators):
     return messaging.get_notification_listener(
         messaging.get_transport(),
-        [oslo_messaging.Target(EVENT_ALARM_RPC_TOPIC)],
+        [oslo_messaging.Target(topic=EVENT_ALARM_RPC_TOPIC)],
         [EventAlarmEndpoint(evaluators)])
 
 
 class EventAlarmEndpoint(object):
 
     def __init__(self, evaluators):
-        self.evaluator = evaluators[ALARM_TYPE_EVENT]
+        self.evaluator = evaluators[ALARM_TYPE_EVENT].obj
 
     def sample(self, ctxt, publisher_id, event_type, payload, metadata):
         # TODO(r-mibu): requeue on error

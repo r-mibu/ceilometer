@@ -139,3 +139,6 @@ class EventAlarmEvaluator(evaluator.Evaluator):
                   % {'message': event['message_id'], 'alarm': alarm.alarm_id})
         reason_data = {'type': 'event', 'event': event}
         self._refresh(alarm, state, reason, reason_data)
+
+    def evaluate(self, alarm):
+        pass

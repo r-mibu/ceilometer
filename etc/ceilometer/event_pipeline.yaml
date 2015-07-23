@@ -11,3 +11,4 @@ sinks:
       triggers:
       publishers:
           - direct://
+          - notifier://?topic=alarm.all

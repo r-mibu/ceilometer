@@ -241,6 +241,9 @@ class EventAlarmEvaluationService(AlarmService, os_service.Service):
         self.listener.wait()
         super(EventAlarmEvaluationService, self).stop()
 
+    def _assigned_alarms(self):
+        pass
+
 
 class AlarmNotifierService(os_service.Service):
 

@@ -17,6 +17,7 @@
 
 import fnmatch
 import operator
+import copy
 
 from oslo_log import log
 
@@ -75,10 +76,13 @@ class EventAlarmEvaluator(evaluator.Evaluator):
     def _related_alarms(self, event):
         """Get all alarms defined in the project."""
 
-        traits = event.get('traits') or {}
-        project_id = (traits.get('tenant_id') or traits.get('project_id') or
-                      PROJECT_NONE)
+        project_id = PROJECT_NONE
+        for trait in event.get('traits') or []:
+            if trait[0] in (u'tenant_id', u'project_id'):
+                project_id = trait[2]
+                break
 
+        LOG.debug(_('get alarms for project_id = %s'), project_id)
         # TODO(r-mibu): cache alarm definitions
         enabled = {'field': 'enabled', 'value': True}
         type_event = {'field': 'type', 'value': 'event'}
@@ -105,22 +109,32 @@ class EventAlarmEvaluator(evaluator.Evaluator):
             return False
 
         event_pattern = alarm.rule['event_type']
-        if fnmatch.fnmatch(event['event_type'], event_pattern):
+        if not fnmatch.fnmatch(event['event_type'], event_pattern):
             LOG.debug(_('aborting evaluation of the alarm due to '
                         'uninterested event_type'))
             return False
 
+        value = copy.deepcopy(event)
+        value['traits'] = {t[0]: t[2] for t in event.get('traits', [])}
+        LOG.debug(_('new formatted event = %s'), value)
+
         def _compare(condition):
             op = COMPARATORS[condition.get('op', 'eq')]
-            value = event
+            LOG.debug(_('op = %s'), op)
+            v = value
+            LOG.debug(_('value(copied from event) = %s'), v)
             for f in condition['field'].split('.'):
-                value = value.get(f)
-                if not value:
+                LOG.debug(_('f = %s'), f)
+                if hasattr(v, 'get'):
+                    v = v.get(f)
+                else:
+                    LOG.debug(_('cannot get vaild data from event'))
                     break
+                LOG.debug(_('value = %s'), v)
             LOG.debug(_('comparing value %(value)s against condition '
                         '%(condition)s') %
-                      {'value': value, 'condition': condition})
-            return op(value, condition['value'])
+                      {'value': v, 'condition': condition})
+            return op(v, condition['value'])
 
         for condition in alarm.rule['query']:
             if not _compare(condition):
